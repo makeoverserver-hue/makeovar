@@ -2,7 +2,7 @@ services:
   - type: web
     name: clinic-x
     runtime: docker
-    plan: starter
+    plan: free
     dockerfilePath: ./Dockerfile
     envVars:
       - key: NODE_ENV
@@ -19,9 +19,5 @@ services:
         value: /data/backups
       - key: CORS_ORIGIN
         value: ""
-    disk:
-      name: clinic-data
-      mountPath: /data
-      sizeGB: 1
     healthCheckPath: /health
     autoDeploy: true
