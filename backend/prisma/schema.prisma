@@ -1,0 +1,740 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============ AUTH & USERS ============
+// Roles: SUPER_ADMIN, ADMIN, MANAGER, RECEPTIONIST, DOCTOR, NURSE, TECHNICIAN
+// Status: ACTIVE, INACTIVE, SUSPENDED
+// Gender: MALE, FEMALE
+
+model User {
+  id            String   @id @default(cuid())
+  fullName      String
+  email         String   @unique
+  password      String
+  phone         String?
+  role          String   @default("RECEPTIONIST")
+  status        String   @default("ACTIVE")
+  gender        String?
+  avatar        String?
+  branchId      String?
+  branch        Branch?  @relation(fields: [branchId], references: [id])
+  clinicId      String?
+  clinic        Clinic?  @relation(fields: [clinicId], references: [id])
+  commissionRate Float?  @default(0)
+  salary        Float?   @default(0)
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  passwordChangedAt DateTime?
+  refreshToken  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  appointments  Appointment[]
+  sessions      TreatmentSession[]
+  invoices      Invoice[]        @relation(name: "CreatedInvoices")
+  doctorInvoices Invoice[]       @relation(name: "DoctorInvoices")
+  payments      Payment[]
+  commissionRecords CommissionRecord[]
+  consents      ConsentForm[]
+  auditLogs     AuditLog[]
+  notifications Notifications[]
+  medicalRecords MedicalRecord[]
+  photos        BeforeAfterPhoto[]
+  patientCreated Patient[]       @relation(name: "CreatedPatients")
+  followUps      FollowUp[]       @relation(name: "CreatedFollowUps")
+  followUpsAssigned FollowUp[]    @relation(name: "AssignedFollowUps")
+  laserSessionsCreated LaserSession[] @relation(name: "CreatedLaserSessions")
+  laserSessionsDoctor LaserSession[]  @relation(name: "LaserDoctors")
+
+  @@index([branchId])
+  @@index([role])
+}
+
+// ============ BRANCH & CLINIC ============
+
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String
+  logo      String?
+  phone     String?
+  email     String?
+  address   String?
+  currency  String   @default("SAR")
+  timezone  String   @default("Asia/Riyadh")
+  settings  String   @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  branches   Branch[]
+}
+
+model Branch {
+  id        String    @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+  clinicId  String
+  clinic    Clinic    @relation(fields: [clinicId], references: [id])
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  users        User[]
+  patients     Patient[]
+  appointments Appointment[]
+  services     Service[]
+  devices      Device[]
+  inventory    InventoryItem[]
+  invoices     Invoice[]
+  packages     Package[]
+  expenses     Expense[]
+  laserSessions LaserSession[]
+
+  @@index([clinicId])
+}
+
+// ============ PATIENTS ============
+
+model Patient {
+  id            String    @id @default(cuid())
+  fullName      String
+  phone         String
+  email         String?
+  gender        String?
+  dateOfBirth   DateTime?
+  age           Int?
+  bloodType     String?
+  heightCm      Float?
+  weightKg      Float?
+  allergies     String?
+  chronicDiseases String?
+  medicalHistory String?
+  emergencyContact String?
+  emergencyPhone String?
+  address       String?
+  notes         String?
+  profileImage  String?
+  source        String?
+  referralSource String?
+  isActive      Boolean   @default(true)
+  branchId      String
+  branch        Branch    @relation(fields: [branchId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdById   String?
+  createdBy     User?     @relation(name: "CreatedPatients", fields: [createdById], references: [id])
+
+  appointments    Appointment[]
+  medicalRecords  MedicalRecord[]
+  treatmentPlans  TreatmentPlan[]
+  sessions        TreatmentSession[]
+  invoices        Invoice[]
+  photos          BeforeAfterPhoto[]
+  consents        ConsentForm[]
+  payments        Payment[]
+  packageSales    PackageSale[]
+  followUps       FollowUp[]
+  laserSessions   LaserSession[]
+
+  @@index([branchId])
+  @@index([phone])
+}
+
+model MedicalRecord {
+  id                String   @id @default(cuid())
+  patientId         String
+  patient           Patient  @relation(fields: [patientId], references: [id])
+  title             String
+  diagnosis         String?
+  description       String?
+  prescription      String?
+  notes             String?
+  attachments       String?
+  createdById       String
+  createdBy         User     @relation(fields: [createdById], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([patientId])
+}
+
+// ============ FOLLOW-UPS ============
+// Status: PENDING, CONTACTED, BOOKED, NO_RESPONSE, CANCELLED, COMPLETED
+// Type: CALL, WHATSAPP, VISIT, EMAIL, OTHER
+
+model FollowUp {
+  id           String   @id @default(cuid())
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  type         String   @default("CALL")
+  date         DateTime
+  assignedToId String?
+  assignedTo   User?    @relation(name: "AssignedFollowUps", fields: [assignedToId], references: [id])
+  createdById  String?
+  createdBy    User?    @relation(name: "CreatedFollowUps", fields: [createdById], references: [id])
+  status       String   @default("PENDING")
+  notes        String?
+  result       String?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([assignedToId])
+  @@index([date])
+  @@index([status])
+}
+
+// ============ APPOINTMENTS ============
+// Status: SCHEDULED, CONFIRMED, CHECKED_IN, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+// Type: CONSULTATION, TREATMENT, FOLLOW_UP, OTHER
+
+model Appointment {
+  id            String   @id @default(cuid())
+  patientId     String
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  doctorId      String
+  doctor        User     @relation(fields: [doctorId], references: [id])
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id])
+  serviceId     String?
+  service       Service? @relation(fields: [serviceId], references: [id])
+  date          DateTime
+  startTime     DateTime
+  endTime       DateTime
+  duration      Int      @default(30)
+  room          String?
+  deviceId      String?
+  device        Device?  @relation(fields: [deviceId], references: [id])
+  type          String   @default("CONSULTATION")
+  status        String   @default("SCHEDULED")
+  notes         String?
+  reason        String?
+  reminderSent  Boolean  @default(false)
+  treatCategory String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([branchId])
+  @@index([date])
+}
+
+// ============ SERVICES ============
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  nameEn      String?
+  description String?
+  category    String?
+  price       Float
+  cost        Float?   @default(0)
+  durationMin Int      @default(30)
+  sessionsCount Int?   @default(1)
+  requiresConsent Boolean @default(false)
+  requiresMedicalAssessment Boolean @default(false)
+  room        String?
+  branchId    String?
+  branch      Branch?  @relation(fields: [branchId], references: [id])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  appointments Appointment[]
+  treatmentPlanItems TreatmentPlanItem[]
+  packageItems PackageItem[]
+  sessions     TreatmentSession[]
+  invoiceItems InvoiceItem[]
+  consents     ConsentForm[]
+
+  @@index([branchId])
+}
+
+// ============ DEVICES ============
+// Status: AVAILABLE, IN_USE, MAINTENANCE, OUT_OF_ORDER
+
+model Device {
+  id             String       @id @default(cuid())
+  name           String
+  type           String
+  manufacturer   String?
+  model          String?
+  serialNumber   String?
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  status         String       @default("AVAILABLE")
+  room           String?
+  purchaseDate   DateTime?
+  warrantyUntil  DateTime?
+  lastMaintenanceDate DateTime?
+  nextMaintenanceDate DateTime?
+  currentPulseCounter Int?    @default(0)
+  totalPulseUsage  Int?       @default(0)
+  settings       String       @default("{}")
+  notes          String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  sessionDevices  SessionDevice[]
+  appointments    Appointment[]
+  laserSessions   LaserSession[]
+
+  @@index([branchId])
+  @@index([type])
+}
+
+model SessionDevice {
+  id          String   @id @default(cuid())
+  sessionId   String
+  session     TreatmentSession @relation(fields: [sessionId], references: [id])
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id])
+  preSettings String?  @default("{}")
+  postSettings String? @default("{}")
+  energyLevel Float?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([deviceId])
+}
+
+// ============ TREATMENT SESSIONS ============
+// Status: SCHEDULED, COMPLETED, CANCELLED, IN_PROGRESS
+
+model TreatmentSession {
+  id              String   @id @default(cuid())
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  serviceId       String
+  service         Service  @relation(fields: [serviceId], references: [id])
+  doctorId        String?
+  doctor          User?    @relation(fields: [doctorId], references: [id])
+  appointmentId   String?
+  treatmentPlanId String?
+  treatmentPlan   TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id])
+  sessionNumber   Int?
+  totalSessions   Int?
+  status          String   @default("SCHEDULED")
+  scheduledDate   DateTime?
+  completedDate   DateTime?
+  deviceId        String?
+  energySettings  String?  @default("{}")
+  areaTreated     String?
+  startPulseCounter Int?
+  endPulseCounter   Int?
+  usedPulses        Int?
+  weightKg        Float?
+  waistCm         Float?
+  hipCm           Float?
+  reaction        String?
+  notes           String?
+  preTreatmentPhotos String? @default("[]")
+  postTreatmentPhotos String? @default("[]")
+  complications   String?
+  nextSessionDate DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  sessionDevices SessionDevice[]
+
+  @@index([patientId])
+  @@index([serviceId])
+  @@index([treatmentPlanId])
+}
+
+// ============ TREATMENT PLANS ============
+
+model TreatmentPlan {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  status      String   @default("active")
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items    TreatmentPlanItem[]
+  sessions TreatmentSession[]
+
+  @@index([patientId])
+}
+
+model TreatmentPlanItem {
+  id              String        @id @default(cuid())
+  planId          String
+  plan            TreatmentPlan @relation(fields: [planId], references: [id])
+  serviceId       String
+  service         Service       @relation(fields: [serviceId], references: [id])
+  sessionsTotal   Int           @default(1)
+  sessionsDone    Int           @default(0)
+  intervalDays    Int?          @default(7)
+  notes           String?
+  price           Float?
+  isCompleted     Boolean       @default(false)
+
+  @@index([planId])
+}
+
+// ============ PACKAGES ============
+
+model Package {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  discount    Float?   @default(0)
+  sessionCount Int?    @default(1)
+  durationDays Int?
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items   PackageItem[]
+  sales   PackageSale[]
+}
+
+model PackageItem {
+  id           String  @id @default(cuid())
+  packageId    String
+  package      Package @relation(fields: [packageId], references: [id])
+  serviceId    String
+  service      Service @relation(fields: [serviceId], references: [id])
+  quantity     Int     @default(1)
+}
+
+model PackageSale {
+  id        String   @id @default(cuid())
+  packageId String
+  package   Package  @relation(fields: [packageId], references: [id])
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+  price     Float
+  quantity  Int      @default(1)
+  status    String   @default("active")
+  sessionsUsed Int   @default(0)
+  sessionsTotal Int  @default(0)
+  soldAt    DateTime @default(now())
+  expiresAt DateTime?
+
+  @@index([patientId])
+  @@index([packageId])
+}
+
+// ============ BEFORE/AFTER PHOTOS ============
+// Type: BEFORE, AFTER, PROGRESS
+
+model BeforeAfterPhoto {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  photoType   String   @default("BEFORE")
+  category    String?
+  filePath    String
+  description String?
+  sessionId   String?
+  takenById   String?
+  takenBy     User?    @relation(fields: [takenById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([patientId])
+}
+
+// ============ CONSENT FORMS ============
+
+model ConsentForm {
+  id          String   @id @default(cuid())
+  title       String
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  serviceId   String?
+  service     Service? @relation(fields: [serviceId], references: [id])
+  content     String
+  signedBy    String?
+  signaturePath String?
+  signedAt    DateTime?
+  isSigned    Boolean  @default(false)
+  status      String   @default("PENDING")
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([patientId])
+}
+
+// ============ INVOICES & PAYMENTS ============
+// Invoice status: DRAFT, PENDING, PAID, PARTIALLY_PAID, CANCELLED, REFUNDED
+// Payment method: CASH, CARD, BANK_TRANSFER, ONLINE, OTHER
+
+model Invoice {
+  id           String   @id @default(cuid())
+  invoiceNumber String  @unique
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id])
+  doctorId     String?
+  doctor       User?    @relation(name: "DoctorInvoices", fields: [doctorId], references: [id])
+  appointmentId String?
+  status       String   @default("PENDING")
+  subtotal     Float    @default(0)
+  discount     Float    @default(0)
+  tax          Float    @default(0)
+  taxRate      Float    @default(0)
+  total        Float    @default(0)
+  paidAmount   Float    @default(0)
+  dueAmount    Float    @default(0)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdById  String
+  createdBy    User     @relation(name: "CreatedInvoices", fields: [createdById], references: [id])
+
+  items       InvoiceItem[]
+  payments    Payment[]
+  packageSales PackageSale[]
+  commissions CommissionRecord[]
+  installments Installment[]
+
+  @@index([patientId])
+  @@index([branchId])
+  @@index([invoiceNumber])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  serviceId   String?
+  service     Service? @relation(fields: [serviceId], references: [id])
+  description String
+  quantity    Int      @default(1)
+  unitPrice   Float
+  total       Float
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  amount      Float
+  method      String   @default("CASH")
+  reference   String?
+  receivedById String
+  receivedBy  User     @relation(fields: [receivedById], references: [id])
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([patientId])
+}
+
+// ============ INVENTORY ============
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  name        String
+  category    String?
+  sku         String?
+  quantity    Int      @default(0)
+  minQuantity Int      @default(0)
+  unitPrice   Float    @default(0)
+  purchasePrice Float  @default(0)
+  supplier    String?
+  expiryDate  DateTime?
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  notes       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  movements InventoryMovement[]
+
+  @@index([branchId])
+}
+
+model InventoryMovement {
+  id             String   @id @default(cuid())
+  itemId         String
+  item           InventoryItem @relation(fields: [itemId], references: [id])
+  type           String
+  quantity       Int
+  reason         String?
+  referenceType  String?
+  referenceId    String?
+  performedById  String?
+  createdAt      DateTime @default(now())
+}
+
+// ============ COMMISSIONS ============
+
+model CommissionRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  invoiceId   String?
+  invoice     Invoice? @relation(fields: [invoiceId], references: [id])
+  sessionId   String?
+  amountBasis Float    @default(0)
+  rate        Float    @default(0)
+  amount      Float    @default(0)
+  status      String   @default("pending")
+  paidDate    DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ============ AUDIT & NOTIFICATIONS ============
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  entityType  String?
+  entityId    String?
+  details     String?
+  ip          String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+model Notifications {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String?
+  type      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+// ============ SETTINGS ============
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  group     String   @default("general")
+  category  String?
+  isSecret  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([group])
+}
+
+// ============ EXPENSES ============
+
+model Expense {
+  id            String   @id @default(cuid())
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id])
+  category      String   @default("مستلزمات")
+  amount        Float
+  date          DateTime @default(now())
+  paymentMethod String?  @default("CASH")
+  description   String?
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([branchId])
+  @@index([date])
+  @@index([category])
+}
+
+// ============ INSTALLMENTS ============
+
+model Installment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  amount    Float
+  dueDate   DateTime
+  status    String   @default("PENDING")
+  paidAt    DateTime?
+  paidById  String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([status])
+}
+
+// ============ LASER MODULE ============
+
+model LaserSession {
+  id               String   @id @default(cuid())
+  patientId        String
+  patient          Patient  @relation(fields: [patientId], references: [id])
+  branchId         String
+  branch           Branch   @relation(fields: [branchId], references: [id])
+  createById       String?
+  createBy         User?    @relation(name: "CreatedLaserSessions", fields: [createById], references: [id])
+  doctorId         String?
+  doctor           User?    @relation(name: "LaserDoctors", fields: [doctorId], references: [id])
+  deviceId         String?
+  device           Device?  @relation(fields: [deviceId], references: [id])
+  runningNo        Int      @default(0)
+  treatmentType    String   @default("HAIR_REMOVAL")
+  bodyArea         String?
+  skinType         String?
+  treatmentSite    String?
+  preLaserProtocol  String?
+  preLaserResponse  String?
+  wavelengthNm     Float?
+  spotSizeMm       Float?
+  energyJcm2       Float?
+  pulseWidthMs     Float?
+  treatmentLevel   String?
+  repetitionHZ     Float?
+  startPulseCounter Int?
+  endPulseCounter   Int?
+  usedPulses        Int?
+  reaction         String?
+  notes            String?
+  status           String   @default("COMPLETED")
+  sessionDate      DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([deviceId])
+  @@index([branchId])
+  @@index([sessionDate])
+}

@@ -1,0 +1,12 @@
+node_modules
+frontend/node_modules
+frontend/dist
+.git
+*.log
+backend/backups
+backend/uploads
+/uploads
+/backups
+.env
+*.db
+*.db-journal

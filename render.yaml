@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: clinic-x
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        value: file:/data/clinic.db
+      - key: UPLOADS_DIR
+        value: /data/uploads
+      - key: BACKUPS_DIR
+        value: /data/backups
+      - key: CORS_ORIGIN
+        value: ""
+    disk:
+      name: clinic-data
+      mountPath: /data
+      sizeGB: 1
+    healthCheckPath: /health
+    autoDeploy: true

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.log
+uploads/
+backend/backups/
+backups/
+*.db
+*.db-journal
+.DS_Store
+fly.toml
+deploy.ps1
