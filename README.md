@@ -1,3 +1,12 @@
+---
+title: clinic
+emoji: hospital
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+---
+
 # نظام إدارة عيادة التجميل والليزر
 
 نظام متكامل (Full-stack) لإدارة عيادات التجميل والليزر باللغة العربية مع واجهة RTL.

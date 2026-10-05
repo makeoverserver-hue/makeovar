@@ -37,7 +37,7 @@ RUN mkdir -p /data
 ENV DATABASE_URL="file:/data/clinic.db"
 ENV UPLOADS_DIR="/data/uploads"
 ENV BACKUPS_DIR="/data/backups"
-ENV PORT=5000
+ENV PORT=7860
 ENV CORS_ORIGIN=""
 
 WORKDIR /workspace/backend
